@@ -1,11 +1,17 @@
 <template>
-  <div id="app">
-    <div id="nav">
-      <router-link to="/">Home</router-link> |
-      <router-link to="/about">About</router-link>
-    </div>
-    <router-view/>
-  </div>
+  <v-app>
+    <v-app-bar app
+      style="justify-content: center; text-transform: uppercase;"
+    > App de uso da api dos pokemons </v-app-bar>
+
+    <v-main>
+      <v-container>
+        <h1>Pokemon List</h1>
+        <hr>
+        <router-view/>
+      </v-container>
+    </v-main>
+  </v-app>
 </template>
 
 <style lang="scss">
