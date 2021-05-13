@@ -7,7 +7,7 @@
       <ul>
         <li
           v-for="poke of sortedPokes"
-          :key="poke.id"
+          :key="poke.id + '_' + Date.now()"
           class="poke-list-item"
           @click="openDetail(poke)"
         >
