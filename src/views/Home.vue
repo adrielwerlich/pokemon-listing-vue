@@ -2,60 +2,121 @@
   <div class="home">
     <div
       v-if="pokes.length > 0"
-      style="display: flex;"
+      style="display: flex; flex-wrap: wrap;"
     >
-      <ul>
-        <li
-          v-for="poke of sortedPokes"
-          :key="poke.id + '_' + Date.now()"
-          class="poke-list-item"
-          @click="openDetail(poke)"
-        >
-          <img
-            :src="poke.sprites.front_default"
-            :alt="poke.name"
-            style="width: 80px; height=80px; margin-right: 14px;"
-          >
 
-          <div class="poke-details">
-            <div class="poke-info">
-              <span class="poke-id">#{{poke.id}}</span>
-              <span class="poke-name">{{poke.name}}</span>
+      <v-card
+        class="mx-auto poke-list-item"
+        width="344"
+        outlined
+        v-for="poke of sortedPokes"
+        :key="poke.id + '_' + Date.now()"
+      >
+        <!-- @click="toggleDetail(poke)" -->
+        <v-list-item three-line>
+          <v-list-item-content>
+            <div class="overline mb-4">
+              #{{poke.id}}
             </div>
-
-            <div class="types">
-              <span
-                v-for="typeData of poke.types"
-                :key="typeData.type.name"
-                :class="`bg--${typeData.type.name}`"
-                class="type text--black"
+            <v-list-item-title class="headline mb-1">
+              {{poke.name}}
+            </v-list-item-title>
+            <v-list-item-subtitle>
+              <div
+                class="types"
+                v-show="pokeIdToShow == null"
               >
-                {{typeData.type.name}}
-              </span>
-            </div>
-            <div
-              class="poke-stats"
-              v-show="pokeIdToShow === poke.id"
-            >
-              <ul class="stats">
-                <li
-                  v-for="(stat, index) in poke.stats"
-                  :key="index"
+                <span
+                  v-for="typeData of poke.types"
+                  :key="typeData.type.name"
+                  :class="`bg--${typeData.type.name}`"
+                  class="type text--black"
                 >
-                  {{ parseStatName(stat.stat.name) }}: {{ stat.base_stat }}
-                </li>
-              </ul>
-            </div>
-          </div>
+                  {{typeData.type.name}}
+                </span>
+              </div>
 
-        </li>
-      </ul>
+              
+            </v-list-item-subtitle>
+          </v-list-item-content>
 
-      <poke-detail
-        v-show="showDetail"
-        v-bind="stats"
-      />
+          <v-list-item-avatar
+            tile
+            size="80"
+            color="grey"
+          >
+            <img
+              :src="poke.sprites.front_default"
+              :alt="poke.name"
+              style="width: 80px; height=80px; margin-right: 14px;"
+            >
+          </v-list-item-avatar>
+        </v-list-item>
+
+        <v-card-actions>
+          <v-btn
+            outlined
+            rounded
+            text
+            @click.prevent="toggleDetail(poke)"
+          >
+            Mostrar detalhes
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+
     </div>
+    <v-row justify="center">
+      <v-dialog
+        v-if="pokeIdToShow"
+        v-model="showDialog"
+        persistent
+        max-width="290"
+      >
+        <v-card>
+          <v-card-title class="headline">
+            poke id and name
+          </v-card-title>
+          <v-card-text>
+            <div
+                class="poke-stats"
+              >
+                <ul
+                  class="stats"
+                  style="padding: 0;"
+                >
+                  <li
+                    v-for="(stat, index) in poke.stats"
+                    :key="index"
+                  >
+                    {{ parseStatName(stat.stat.name) }}: {{ stat.base_stat }}
+                  </li>
+                </ul>
+                <v-btn
+                  :loading="btnLoader"
+                  :disabled="btnLoader"
+                  @click.prevent="showHowToFindIt(poke.id, $event)"
+                >
+                  Como encontrá-lo
+                </v-btn>
+                <div>
+                  <p :ref="`find_${poke.id}`"></p>
+                </div>
+              </div>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn
+              color="green darken-1"
+              text
+              @click="toggleDetail()"
+            >
+              Fechar
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+    </v-row>
   </div>
 </template>
 
@@ -97,30 +158,29 @@ export default {
     //     console.log(`err`, err)
     //   })
 
-      setTimeout(() => {
-        
-        window.addEventListener('scroll', () => {
-          if (
-            window.innerHeight + 
-            document.documentElement.scrollTop === 
-            document.scrollingElement.scrollHeight
-          ) {
-          
-            this.loadNext()
-
-          }
-        })
-
-      }, 3000);
+    setTimeout(() => {
+      window.addEventListener("scroll", () => {
+        if (
+          window.innerHeight + document.documentElement.scrollTop ===
+          document.scrollingElement.scrollHeight
+        ) {
+          this.loadNext()
+        }
+      })
+    }, 3000)
   },
   data() {
     return {
+      btnLoader: false,
       pokes: [],
       pokeApiUrl: "https://pokeapi.co/api/v2",
+      encounterUrl: "https://pokeapi.co/api/v2/encounter-method/",
       showDetail: false,
       stats: null,
       pokeIdToShow: null,
+      poke: null,
       nextRound: null,
+      dialog: false,
     }
   },
   computed: {
@@ -132,31 +192,73 @@ export default {
         if (a.id > b.id) {
           return 1
         }
-        
+
         return 0
       })
       return sorted
     },
+    showDialog() {
+      return this.pokeIdToShow === this.poke.id
+    }
   },
   methods: {
+    showSpinner(pokeId) {
+      this.$refs[`spinner_${pokeId}`][0].style.display = ""
+    },
+    hideSpinner(pokeId) {
+      this.$refs[`spinner_${pokeId}`][0].style.display = "initial"
+    },
+    showHowToFindIt(pokeId, e) {
+      // debugger
+      // this.showSpinner(pokeId)
+      e.stopPropagation()
+
+      this.btnLoader = true
+      fetch(this.encounterUrl + pokeId, {
+        method: "GET",
+        headers: {
+          "Content-type": "application/json",
+        },
+      })
+        .then((response) => response.json())
+        .then((result) => {
+          // console.log("result", result)
+          if (result.names && result.names.length > 0) {
+            const filterEn = result.names.filter((method) => {
+              if (method.language.name == "en") return method
+            })
+            setTimeout(() => {
+              this.btnLoader = false
+              if (filterEn && filterEn.length > 0) {
+                this.$nextTick(() => {
+                  this.$refs[`find_${pokeId}`].innerText = filterEn[0].name
+                })
+              }
+            }, 250)
+          }
+        })
+        .catch((err) => {
+          console.log(`err`, err)
+        })
+    },
     fetchUrl(url) {
       fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-type": "application/json",
-      },
-    })
-      .then((response) => response.json())
-      .then((result) => {
-        console.log("result", result)
-        if (result.results && result.results.length > 0) {
-          this.getPokes(result.results)
-          this.nextRound = result.next
-        }
+        method: "GET",
+        headers: {
+          "Content-type": "application/json",
+        },
       })
-      .catch((err) => {
-        console.log(`err`, err)
-      })
+        .then((response) => response.json())
+        .then((result) => {
+          console.log("result", result)
+          if (result.results && result.results.length > 0) {
+            this.getPokes(result.results)
+            this.nextRound = result.next
+          }
+        })
+        .catch((err) => {
+          console.log(`err`, err)
+        })
     },
     loadNext() {
       if (this.nextRound) {
@@ -166,11 +268,14 @@ export default {
     parseStatName(name) {
       return statsNames[name] || name
     },
-    openDetail(poke) {
-      // this.showDetail = true
-      // this.stats = poke.stats
-      if (this.pokeIdToShow != poke.id) this.pokeIdToShow = poke.id
-      else this.pokeIdToShow = null
+    toggleDetail(poke) {
+      if (poke && this.pokeIdToShow != poke.id) {
+        this.pokeIdToShow = poke.id
+        this.poke = poke  
+      } else {
+        this.pokeIdToShow = null
+        this.poke = null  
+      }
     },
     getPokes(list) {
       if (list && list.length > 0) {
@@ -183,7 +288,7 @@ export default {
           })
             .then((response) => response.json())
             .then((result) => {
-              console.log("poke by name", result)
+              // console.log("poke by name", result)
               this.pokes.push(result)
             })
             .catch((err) => {
@@ -216,7 +321,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 8px 4px;
-  cursor: pointer;
+  /* cursor: pointer; */
   margin: 2% 0;
 }
 .poke-info {
